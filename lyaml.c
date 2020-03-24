@@ -1,6 +1,6 @@
 /*
  * lyaml.c, LibYAML binding for Lua
- * 
+ *
  * Copyright (c) 2009-2012, Andrew Danforth <acd@weirdness.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -9,10 +9,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -20,10 +20,10 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- * 
- * Portions of this software were inspired by Perl's YAML::LibYAML module by 
+ *
+ * Portions of this software were inspired by Perl's YAML::LibYAML module by
  * Ingy döt Net <ingy@cpan.org>
- * 
+ *
  */
 
 #include <string.h>
@@ -96,7 +96,7 @@ static void generate_error_message(struct lua_yaml_loader *loader) {
    luaL_addstring(&b, buf);
 
    if (loader->parser.problem_mark.line || loader->parser.problem_mark.column) {
-      snprintf(buf, sizeof(buf), ", line: %d, column: %d\n",
+      snprintf(buf, sizeof(buf), ", line: %ld, column: %ld\n",
          loader->parser.problem_mark.line + 1,
          loader->parser.problem_mark.column + 1);
       luaL_addstring(&b, buf);
@@ -105,7 +105,7 @@ static void generate_error_message(struct lua_yaml_loader *loader) {
    }
 
    if (loader->parser.context) {
-      snprintf(buf, sizeof(buf), "%s at line: %d, column: %d\n",
+      snprintf(buf, sizeof(buf), "%s at line: %ld, column: %ld\n",
          loader->parser.context,
          loader->parser.context_mark.line + 1,
          loader->parser.context_mark.column + 1);
@@ -314,7 +314,7 @@ static void load(struct lua_yaml_loader *loader) {
       if (loader->event.type != YAML_DOCUMENT_END_EVENT)
          RETURN_ERRMSG(loader, "expected DOCUMENT_END_EVENT");
 
-      /* reset anchor table */ 
+      /* reset anchor table */
       lua_newtable(loader->L);
       lua_replace(loader->L, loader->anchortable_index);
    }
@@ -378,7 +378,7 @@ static int is_binary_string(const unsigned char *str, size_t len) {
 
 static int dump_scalar(struct lua_yaml_dumper *dumper) {
    int type = lua_type(dumper->L, -1);
-   size_t len;
+   size_t len=0;
    const char *str = NULL;
    yaml_char_t *tag = NULL;
    yaml_event_t ev;
@@ -485,7 +485,7 @@ static int dump_table(struct lua_yaml_dumper *dumper, int style) {
 }
 
 static int dump_array(struct lua_yaml_dumper *dumper, int style) {
-   int i, n = luaL_getn(dumper->L, -1);
+   int i, n;
    yaml_event_t ev;
    yaml_sequence_style_t seq_style = YAML_ANY_SEQUENCE_STYLE;
    yaml_char_t *anchor = get_yaml_anchor(dumper);
@@ -501,7 +501,7 @@ static int dump_array(struct lua_yaml_dumper *dumper, int style) {
    yaml_sequence_start_event_initialize(&ev, anchor, NULL, 0, seq_style);
    yaml_emitter_emit(&dumper->emitter, &ev);
 
-   for (i = 0; i < n; i++) {
+   for (i = 0, n = lua_objlen(dumper->L, -1); i < n; i++) {
       lua_rawgeti(dumper->L, -1, i + 1);
       if (!dump_node(dumper) || dumper->error)
          return 0;
@@ -516,7 +516,7 @@ static int dump_array(struct lua_yaml_dumper *dumper, int style) {
 
 static int figure_style_type(lua_State *L) {
    int style = LUAYAML_ANY_STYLE;
-   
+
    if (lua_getmetatable(L, -1)) {
       /* has metatable, look for _yaml_style key */
       lua_pushliteral(L, "_yaml_style");
@@ -576,7 +576,7 @@ static int dump_node(struct lua_yaml_dumper *dumper) {
       }
 
       if (type == LUAYAML_KIND_UNKNOWN && Dump_Auto_Array &&
-          luaL_getn(dumper->L, -1) > 0) {
+          lua_objlen(dumper->L, -1) > 0) {
          type = LUAYAML_KIND_SEQUENCE;
       }
 
@@ -612,7 +612,7 @@ static void dump_document(struct lua_yaml_dumper *dumper) {
    yaml_emitter_emit(&dumper->emitter, &ev);
 }
 
-static int append_output(void *arg, unsigned char *buf, unsigned int len) {
+static int append_output(void *arg, unsigned char *buf, size_t len) {
    struct lua_yaml_dumper *dumper = (struct lua_yaml_dumper *)arg;
    luaL_addlstring(&dumper->yamlbuf, (char *)buf, len);
    return 1;
@@ -752,7 +752,7 @@ static int l_null(lua_State *L) {
 }
 
 LUALIB_API int luaopen_yaml(lua_State *L) {
-   const luaL_reg yamllib[] = {
+   const luaL_Reg yamllib[] = {
       { "load", l_load },
       { "dump", l_dump },
       { "configure", l_config },
